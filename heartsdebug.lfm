@@ -1,0 +1,30 @@
+object frmDebug: TfrmDebug
+  Left = 1295
+  Height = 534
+  Top = 150
+  Width = 548
+  Caption = 'Debug'
+  ClientHeight = 534
+  ClientWidth = 548
+  LCLVersion = '2.0.2.0'
+  object memDebug: TMemo
+    Left = 0
+    Height = 408
+    Top = 8
+    Width = 544
+    Lines.Strings = (
+      'memDebug'
+    )
+    ScrollBars = ssVertical
+    TabOrder = 0
+  end
+  object btnClose: TButton
+    Left = 47
+    Height = 52
+    Top = 439
+    Width = 119
+    Caption = 'Close'
+    OnClick = btnCloseClick
+    TabOrder = 1
+  end
+end
