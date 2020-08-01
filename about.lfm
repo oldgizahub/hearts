@@ -1,7 +1,7 @@
 object frmAbout: TfrmAbout
-  Left = 953
+  Left = 1160
   Height = 683
-  Top = 151
+  Top = 140
   Width = 593
   HorzScrollBar.Page = 592
   HorzScrollBar.Range = 592
@@ -629,7 +629,7 @@ object frmAbout: TfrmAbout
           ''
           'Common Loon Card Games'
           '(c) Geoff Gigg (geoffgigg@hotmail.com)'
-          '2020.07.27'
+          '2020.07.31'
           'Licence: GPL v2 (https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)'
           ''
           'Program code - Geoff Gigg'

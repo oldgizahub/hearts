@@ -29,7 +29,6 @@ Type
 
   TfrmMain = class(TForm)
 
-
     pnlHearts             : TPanel;
 
     imgHeartsNewGame      : TImage;
@@ -108,10 +107,10 @@ Type
 
     imgTag                : TImage;        // The little red hint arrowhead
 
-    labEastGamesWon       : TLabel;        // Number of games won by each
-    labSouthGamesWon      : TLabel;
+    labWestGamesWon       : TLabel;        // Number of games won by each
     labNorthGamesWon      : TLabel;
-    labWestGamesWon       : TLabel;
+    labEastGamesWon       : TLabel;
+    labSouthGamesWon      : TLabel;
 
     imgWestsmall          : TImage;        // Character images in the score
     imgNorthsmall         : TImage;
@@ -120,8 +119,16 @@ Type
     imgSouthsmallhuman    : TImage;        // Use tanuki image when human playing
     imgSouthsmallrobot    : TImage;        // Use robot image when robot playing
 
-    txtHandpoints         : TEdit;         // Scores
-    txtGamepoints         : TEdit;
+
+    labWestGamePoints     : TLabel;
+    labNorthGamePoints    : TLabel;
+    labEastGamePoints     : TLabel;       // Scores
+    labSouthGamePoints    : TLabel;
+
+    labWestHandPoints     : TLabel;
+    labNorthHandPoints    : TLabel;
+    labEastHandPoints     : TLabel;
+    labSouthHandPoints    : TLabel;
 
     procedure butDebugClick(Sender: TObject);
     procedure Card01Click(Sender: TObject);
@@ -282,6 +289,9 @@ Var
   playplayer              : player;
   playlegal               : cardset;
   playsuit                : suit;
+
+  playerdanger            : array [player] of smallint;
+  playerstanding          : array [player] of smallint;
   playeroutofsuit         : array [player,suit] of boolean;
 
   receivecards            : array [player] of cardset;
@@ -295,17 +305,15 @@ Var
   savecurrentpass         : array [player] of cardset;
   savecurrentdirection    : passway;
   savecurrentgamepoints   : array [player] of smallint;
-  savecurrentgamepointstext : shortstring;
-  savecurrenthandpoints   : array [player] of smallint;
-  savecurrenthandpointstext : shortstring;
+  savecurrentgamepointstext : array [player] of shortstring;
+  savecurrenthandpointstext : array [player] of shortstring;
 
   saveprevioushand        : array [player] of cardset;
   savepreviouspass        : array [player] of cardset;
   savepreviousdirection   : passway;
-  savepreviousgamepoints   : array [player] of smallint;
-  savepreviousgamepointstext : shortstring;
-  saveprevioushandpoints   : array [player] of smallint;
-  saveprevioushandpointstext : shortstring;
+  savepreviousgamepoints  : array [player] of smallint;
+  savepreviousgamepointstext : array [player] of shortstring;
+  saveprevioushandpointstext : array [player] of shortstring;
 
   tagcards                : cardset;
   tagimage                : array [1..13] of TImage;
@@ -379,6 +387,11 @@ procedure basicfollowother;                                             forward;
 
 procedure getcontrolplay;                                               forward;
 procedure stopcontrolplay;                                              forward;
+procedure calculateplayerstandings;                                     forward;
+procedure calculateplayerdangers;                                       forward;
+function  oktodropqueen (p: player; q: player) : boolean;               forward;
+procedure checkforcontrol;                                              forward;
+procedure projecttrickwinner;                                           forward;
 
   // Card display
 procedure resetcardpositions;                                           forward;
@@ -391,6 +404,14 @@ procedure tagcard;                                                      forward;
 procedure untagcard;                                                    forward;
 procedure bughands;                                                     forward;
 procedure bugit              (s : string);                              forward;
+
+  // Score display
+procedure clearscores;                                                  forward;
+procedure savepreviousscores;                                           forward;
+procedure savecurrentscores;                                            forward;
+procedure restorescoresfromcurrent;                                     forward;
+procedure restorescoresfromprevious;                                    forward;
+procedure resetcurrenttoprevious;                                       forward;
 
   // Utility
 function  countcards         (xcards : cardset)            : smallint;  forward;
@@ -807,11 +828,25 @@ end;
 // that and so on back to the beginning of the game. That is, they
 // cannot restart the current hand, and then, before passing or
 // playing, try to replay the hand before that.
+//
+// Note too that the "previous" information is only useful for that
+// very brief period when they are starting a new hand but have not
+// yet passed (or played a card in the case of a hold). It's there
+// because we don't know if they are going to ask for a repeat or
+// not, of course. We have to assume they won't, so we have to save
+// the score at the end of the hand just played, etc. and that wipes
+// out the "current" info which was recording the scores etc. as they
+// stood at the beginning of the previous hand (which was the current
+// hand until they just started this new hand). But if they do repeat
+// the now previous hand before getting this one officially under way
+// we want to have that hand's info still around, which is what the
+// "previous" data elements do.
 //===================================================================
 
 procedure TfrmMain.imgHeartsReplayHandClick(Sender: TObject);
 
 var
+  gameswontext            : shortstring;
   i                       : smallint;
   p                       : player;
   s                       : suit;
@@ -869,8 +904,7 @@ begin
         gamepoints[p] := savecurrentgamepoints[p];
       end;
 
-      frmMain.txtHandpoints.Text := savecurrenthandpointstext;
-      frmMain.txtGamepoints.Text := savecurrentgamepointstext;
+      restorescoresfromcurrent;
       passdirection := savecurrentdirection;
       if passdirection <> hold then begin
         for p in player do begin
@@ -881,27 +915,31 @@ begin
       for p in winners do begin
 
         gameswon[p] := gameswon[p] - 1;
+        case gameswon[p] of
+          0 :  gameswontext := '';
+          else gameswontext :=inttostr (gameswon[p]);
+        end;
 
         case p of
 
           south : begin
             frmMain.imgSouthHeart.Visible := False;
-            frmMain.labSouthGamesWon.Caption := inttostr (gameswon[p]);
+            frmMain.labSouthGamesWon.Caption := gameswontext;
           end;
 
           west  : begin
             frmMain.imgWestHeart.Visible := False;
-            frmMain.labWestGamesWon.Caption := inttostr (gameswon[p]);
+            frmMain.labWestGamesWon.Caption := gameswontext;
           end;
 
           north : begin
             frmMain.imgNorthHeart.Visible := False;
-            frmMain.labNorthGamesWon.Caption := inttostr (gameswon[p]);
+            frmMain.labNorthGamesWon.Caption := gameswontext;
           end;
 
           east  : begin
             frmMain.imgEastHeart.Visible := False;
-            frmMain.labEastGamesWon.Caption := inttostr (gameswon[p]);
+            frmMain.labEastGamesWon.Caption := gameswontext;
           end;
 
         end;
@@ -949,10 +987,8 @@ begin
         savecurrentgamepoints[p] := savepreviousgamepoints[p];
       end;
 
-      frmMain.txtHandpoints.Text := saveprevioushandpointstext;
-      frmMain.txtGamepoints.Text := savepreviousgamepointstext;
-      savecurrenthandpointstext  := saveprevioushandpointstext;
-      savecurrentgamepointstext  := savepreviousgamepointstext;
+      restorescoresfromprevious;
+      resetcurrenttoprevious;
 
       passdirection := savepreviousdirection;
       savecurrentdirection := savepreviousdirection;
@@ -978,30 +1014,28 @@ begin
 
   end;
 
-    // Common
-    //
-    // Now the things that are common to every replay situation.
+    // Common - now the things that are common to every replay situation.
 
   replayinprogress := true;
 
-    // Position the card images (or reposition them if any are popped
-    // because they terminated previous game in middle).
+    // ... position the card images (or reposition them if any are popped
+    //     because they terminated previous game in middle).
 
   resetcardpositions;
 
-    // Clear the trick images in case they clicked replay during a trick.
+    // ... clear the trick images in case they clicked replay during a trick.
 
   for p in player do begin
     trickimage[p].visible := false;
   end;
 
-    // Make sure all the tag markers (for hints) are cleared.
+    // ... make sure all the tag markers (for hints) are cleared.
 
   for i := 1 to 13 do begin
     tagimage[i].Visible := False;
   end;
 
-    // Reset things to the way they were when the hand started.
+    // ... reset things to the way they were when the hand started.
 
   tricknumber := 0;
   heartsbroken := false;
@@ -1009,13 +1043,13 @@ begin
   passmade := false;
   cardplayed := false;
 
-    // Zero everyone's points for this hand.
+    // ... zero everyone's points for this hand.
 
   for p in player do begin
     handpoints[p] := 0;
   end;
 
-    // Clear the logs of cards played in this hand.
+    // ... clear the logs of cards played in this hand.
 
   loghand := [];
   for p in player do begin
@@ -1025,7 +1059,7 @@ begin
     logsuit[s] := [];
   end;
 
-    // Clear out who has run out of the various suits.
+    // ... clear out who has run out of the various suits.
 
   for p in player do begin
     for s in suit do begin
@@ -1033,15 +1067,15 @@ begin
     end;
   end;
 
-    //  Show the hands.
+    //  ... show the hands.
 
   bughands;
   showeveryhand;
 
-    // Were we passing or holding?
-    // If it's hold, we can start the first trick right away.
-    // Otherwise, restore the computer players' pass cards.
-    // And restore the hints for the human player.
+    // ... were we passing or holding?
+    //       If it's hold, we can start the first trick right away.
+    //       Otherwise, restore the computer players' pass cards.
+    //       And restore the hints for the human player.
 
   if passdirection = hold then begin
     starttrick;
@@ -1051,7 +1085,7 @@ begin
   passhintcards := passcards[humanplayer];
   passcards[humanplayer] := [];
 
-    // Prepare to get the human player's passes.
+    // ... prepare to get the human player's passes.
 
   humanstate := passing;
 
@@ -1831,8 +1865,7 @@ begin
     gamepoints[p] := 0;
   end;
 
-  frmMain.txtHandpoints.Text := '';
-  frmMain.txtGamepoints.Text := '';
+  clearscores;
 
     // Choose dealer, set direction of pass, and start the first hand.
 
@@ -1903,8 +1936,9 @@ begin
       savepreviouspass[p] := savecurrentpass[p];
       savepreviousgamepoints[p] := savecurrentgamepoints[p];
     end;
-    saveprevioushandpointstext := savecurrenthandpointstext;
-    savepreviousgamepointstext := savecurrentgamepointstext;
+    savepreviousscores;
+    //saveprevioushandpointstext := savecurrenthandpointstext;
+    //savepreviousgamepointstext := savecurrentgamepointstext;
     savepreviousdirection := savecurrentdirection;
   end;
 
@@ -1930,8 +1964,7 @@ begin
     savecurrenthand[p] := handcards[p];
     savecurrentgamepoints[p] := gamepoints[p];
   end;
-  savecurrenthandpointstext := frmMain.txtHandpoints.Text;
-  savecurrentgamepointstext := frmMain.txtGamepoints.Text;
+  savecurrentscores;
   savecurrentdirection := passdirection;
 
     // If it's hold, we can start the first trick right away.
@@ -2262,9 +2295,7 @@ end;
 procedure finishhand;
 var
   g                       : shortstring;
-  gall                    : shortstring;
   h                       : shortstring;
-  hall                    : shortstring;
   p                       : player;
   s                       : shortstring;
   shotthemoon             : boolean = false;
@@ -2295,27 +2326,36 @@ begin
 
     // Print the hand points and game points.
 
-  hall := '';
-  gall := '';
-
   for p in player do begin
 
     h := inttostr(handpoints[p]);
     if handpoints[p] > 0 then begin
       h := '+' + h;
     end;
-    h := space(5-length(h)) + h;
-    hall := hall + h;
 
     gamepoints[p] := gamepoints[p] + handpoints[p];
     g := inttostr(gamepoints[p]);
-    g := space(5-length(g)) + g;
-    gall := gall + g;
+
+    case p of
+      west : begin
+        frmMain.labwesthandpoints.caption  := h;
+        frmMain.labwestgamepoints.caption  := g;
+      end;
+      north : begin
+        frmMain.labnorthhandpoints.caption := h;
+        frmMain.labnorthgamepoints.caption := g;
+      end;
+      east : begin
+        frmMain.labeasthandpoints.caption  := h;
+        frmMain.labeastgamepoints.caption  := g;
+      end;
+      south : begin
+        frmMain.labsouthhandpoints.caption := h;
+        frmMain.labsouthgamepoints.caption := g;
+      end;
+    end;
 
   end;
-
-  frmMain.txtHandpoints.Text := RightStr(hall,19);
-  frmMain.txtGamepoints.Text := RightStr(gall,19);
 
     // Is the game over?
     // If it is, and we are robot playing, then start a new game.
@@ -3234,11 +3274,11 @@ begin
     // Can I try to get the queen of spades to drop?
     // If it hasn't come out yet, and I don't have it, and I have a
     // sufficient number of spades not to worry about getting it later myself,
-    // then lead a spade.
+    // then lead a spade - but not the king or ace.
 
     if     (queenofspades in spadesothers)
        and (countcards(spadesx) >= countcards(spadesothers)) then begin
-      playcard := highestofall(spadesmine);
+      playcard := highestofall(spadesx);
       bugit ('Hoping I have enough spades to make queen drop and not get it');
       exit;
     end;
@@ -3573,6 +3613,164 @@ begin
   playcard := pickarandomcard(playlegal);
 
 end;
+
+//===================================================================
+// Calculate the relative standing of each player with respect to
+// the current score (not including any potential points taken in
+// this hand.
+//
+// Note that ties can result in rankings like 1 1 3 4 or 1 2 2 4 etc.
+// So a player's standing is the count of how many player's have a
+// score less than that player + 1. eg scores and standing:
+//       78   4
+//       55   2
+//       55   2
+//       24   1
+//===================================================================
+
+procedure calculateplayerstandings;
+
+var
+   lessthanmecount        : smallint;
+   mypoints               : smallint;
+   p                      : player;
+   xp                     : player;
+
+begin
+
+  for p in player do begin
+    mypoints := gamepoints[p];
+    lessthanmecount := 0;
+    for xp in player do begin
+      if p <> xp then begin
+        if gamepoints[xp] < mypoints then begin
+          lessthanmecount := lessthanmecount + 1;
+        end;
+      end;
+    end;
+    playerstanding[p] := lessthanmecount + 1;
+  end;
+
+end;
+
+//===================================================================
+// Calculate the danger each player is in based on the score they
+// have. The higher the points, the greater the danger.
+//===================================================================
+
+procedure calculateplayerdangers;
+
+var
+  d                       : smallint;
+  p                       : player;
+
+begin
+
+  for p in player do begin;
+    case gamepoints[p] of
+      -9000..-1 : d := 0;
+          0..20 : d := 1;
+         21..35 : d := 2;
+         36..50 : d := 3;
+         51..69 : d := 4;
+         70..75 : d := 5;
+         76..86 : d := 6;
+         87..91 : d := 7;        { the queen of spades would put them out}
+         92..96 : d := 8;
+         97..99 : d := 9;
+         else     d := 9;
+    end;
+    playerdanger[p] := d;
+  end;
+
+end;
+
+//===================================================================
+// Is it OK to drop the queen of spades? (or to force it out)
+//
+// If it means the player who takes would bust 100, and I would lose
+// then I don't want to do it.
+//
+// p is the player making the play, q is the player who would get it.
+// Sometimes, we aren't sure who would get it (eg if we aren't
+// playing last, we might not know). In that case, q is the same as p
+// just to let us know this is the case.
+//===================================================================
+
+function oktodropqueen (p: player; q: player) : boolean;
+
+var
+  dropit                  : boolean;
+
+begin
+
+    // If I am in first place, then OK to drop/force queen of spades
+    // regardless of anything else. (But we should take into account
+    // points taken in this hand, even if can't be certainly ascribed.)
+
+  calculateplayerstandings;
+  if playerstanding[p] = 1 then begin
+    result := true;
+    exit;
+  end;
+
+    // I am not in first place.
+    // If I don't know the target, then I will drop it if I am in danger,
+    // otherwise will not. The latter is a little risky.
+    // If I do know the target, then I will drop it if they are not in danger,
+    // otherwise will not (because they could bust and I am not in first, so
+    // would lose).
+
+  calculateplayerdangers;
+
+  case p=q of
+
+    true : begin
+      case playerdanger[p] of
+        0..5 : dropit := false;
+        else   dropit := true;
+      end;
+    end;
+
+    false : begin
+      case playerdanger[q] of
+        0..5 : dropit := true;
+        else   dropit := false;
+      end;
+    end;
+
+  end;
+
+  result := dropit;
+
+end;
+
+//===================================================================
+// Project trick winner.
+// It's important to know who is certainly, or likely going to win
+// the trick, before I play. It affects the decision to drop the
+// queen, drop a heart, etc.
+//===================================================================
+
+procedure projecttrickwinner;
+
+begin
+
+end;
+
+//===================================================================
+// Does it look like someone might get control?
+// Identify player who has potential to get control, based on points
+// taken in this hand.
+//===================================================================
+
+procedure checkforcontrol;
+
+begin
+
+end;
+
+
 //###################################################################
 // CARD DISPLAY ROUTINES
 //###################################################################
@@ -3862,6 +4060,149 @@ procedure bugit (s : string);
 begin
   if debug = True then begin
     frmDebug.memDebug.lines.Add(s)
+  end;
+end;
+
+//###################################################################
+// ONSCREEN SCORES
+//
+// Clear/save/restore onscreen scores.
+//
+// These routines could be integrated into the spots were they are
+// called from. They are not logically distinct from them. The only
+// reason to have separate routines is because they are so long
+// and that's because of having to use separate label fields for each
+// value. We used to use one label field covering all 4 players,
+// but that did not work well when transferring from Linux to Windows
+// because the Linux monotype font required for alignment did not
+// get converted into a monotype field on Windows, and so the scores
+// did not line up under the little player pictures.
+//
+// It's a bit tedious to do it this way - would be easier if there
+// were control arrays.
+//###################################################################
+
+
+//===================================================================
+// At the beginning of the game, clear the on-screen scores.
+//===================================================================
+
+procedure clearscores;
+
+begin
+
+  frmMain.labWestHandPoints.caption  := '';
+  frmMain.labNorthHandPoints.caption := '';
+  frmMain.labEastHandPoints.caption  := '';
+  frmMain.labSouthHandPoints.caption := '';
+
+  frmMain.labWestGamePoints.caption  := '';
+  frmMain.labNorthGamePoints.caption := '';
+  frmMain.labEastGamePoints.caption  := '';
+  frmMain.labSouthGamePoints.caption := '';
+
+end;
+
+//===================================================================
+// At the beginning of a new hand (except the first), save the scores
+// that were in effect at the *start* of the just completed hand.
+// (That is, the scores that ended the hand *before* the just
+// completed hand.) Those values are in the current elements, which
+// are about to be reset.
+//===================================================================
+
+procedure savepreviousscores;
+
+var
+  p                       : player;
+
+begin
+   for p in player do begin
+     saveprevioushandpointstext[p] := savecurrenthandpointstext[p];
+     savepreviousgamepointstext[p] := savecurrentgamepointstext[p];
+   end;
+
+end;
+
+//===================================================================
+// At the beginning of a new hand, save the scores that are in
+// effect now.(That is, the scores that ended the just completed
+// hand.) Those values are in the on-screen fields.
+//===================================================================
+
+procedure savecurrentscores;
+
+begin
+
+  savecurrenthandpointstext[west]  := frmMain.labWestHandPoints.caption;
+  savecurrenthandpointstext[north] := frmMain.labNorthHandPoints.caption;
+  savecurrenthandpointstext[east]  := frmMain.labEastHandPoints.caption;
+  savecurrenthandpointstext[south] := frmMain.labSouthHandPoints.caption;
+
+  savecurrentgamepointstext[west]  := frmMain.labWestGamePoints.caption;
+  savecurrentgamepointstext[north] := frmMain.labNorthGamePoints.caption;
+  savecurrentgamepointstext[east]  := frmMain.labEastGamePoints.caption;
+  savecurrentgamepointstext[south] := frmMain.labSouthGamePoints.caption;
+
+end;
+
+//===================================================================
+// Starting to replay the *current* hand. Restore on-screen scores from
+// values saved at start of current hand.
+//===================================================================
+
+procedure restorescoresfromcurrent;
+
+begin
+
+  frmMain.labWestHandPoints.caption  := savecurrenthandpointstext[west];
+  frmMain.labNorthHandPoints.caption := savecurrenthandpointstext[north];
+  frmMain.labEastHandPoints.caption  := savecurrenthandpointstext[east];
+  frmMain.labSouthHandPoints.caption := savecurrenthandpointstext[south];
+
+  frmMain.labWestGamePoints.caption  := savecurrentgamepointstext[west];
+  frmMain.labNorthGamePoints.caption := savecurrentgamepointstext[north];
+  frmMain.labEastGamePoints.caption  := savecurrentgamepointstext[east];
+  frmMain.labSouthGamePoints.caption := savecurrentgamepointstext[south];
+
+end;
+
+//===================================================================
+// Starting to replay the previous hand. Restore on-screen scores
+// from values saved at start of previous hand.
+//===================================================================
+
+procedure restorescoresfromprevious;
+
+begin
+
+  frmMain.labWestHandPoints.caption  := saveprevioushandpointstext[west];
+  frmMain.labNorthHandPoints.caption := saveprevioushandpointstext[north];
+  frmMain.labEastHandPoints.caption  := saveprevioushandpointstext[east];
+  frmMain.labSouthHandPoints.caption := saveprevioushandpointstext[south];
+
+  frmMain.labWestGamePoints.caption  := savepreviousgamepointstext[west];
+  frmMain.labNorthGamePoints.caption := savepreviousgamepointstext[north];
+  frmMain.labEastGamePoints.caption  := savepreviousgamepointstext[east];
+  frmMain.labSouthGamePoints.caption := savepreviousgamepointstext[south];
+
+end;
+
+//===================================================================
+// Starting to replay the previous hand. The scores that started it
+// become the scores starting the current hand.
+//===================================================================
+
+procedure resetcurrenttoprevious;
+
+var
+  p                       : player;
+
+begin
+
+  for p in player do begin
+    savecurrenthandpointstext[p]  := saveprevioushandpointstext[p];
+    savecurrentgamepointstext[p]  := savepreviousgamepointstext[p];
   end;
 end;
 

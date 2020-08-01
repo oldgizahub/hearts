@@ -1,7 +1,7 @@
 object frmDebug: TfrmDebug
-  Left = 1295
+  Left = 1332
   Height = 534
-  Top = 150
+  Top = 305
   Width = 548
   Caption = 'Debug'
   ClientHeight = 534

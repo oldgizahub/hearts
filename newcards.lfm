@@ -1,7 +1,7 @@
 object frmMain: TfrmMain
-  Left = 767
+  Left = 481
   Height = 712
-  Top = 75
+  Top = 156
   Width = 798
   Caption = 'Common Loon Hearts'
   ClientHeight = 712
@@ -328,34 +328,6 @@ object frmMain: TfrmMain
       9B45FB483C0655CD95520100B82ABC9CC5626B5B2EFF1711E8FE3D5935464C00
       00000049454E44AE426082
     }
-  end
-  object txtHandpoints: TEdit
-    Left = 608
-    Height = 25
-    Top = 650
-    Width = 180
-    Color = 9560858
-    Font.Height = -13
-    Font.Name = 'Andale Mono'
-    Font.Style = [fsBold, fsItalic]
-    ParentFont = False
-    ReadOnly = True
-    TabStop = False
-    TabOrder = 0
-  end
-  object txtGamepoints: TEdit
-    Left = 608
-    Height = 25
-    Top = 672
-    Width = 180
-    Color = 9560858
-    Font.Height = -13
-    Font.Name = 'Andale Mono'
-    Font.Style = [fsBold]
-    ParentFont = False
-    ReadOnly = True
-    TabStop = False
-    TabOrder = 1
   end
   object imgSouth: TImage
     Left = 340
@@ -1435,7 +1407,7 @@ object frmMain: TfrmMain
     Width = 58
     Caption = 'Debug'
     OnClick = butDebugClick
-    TabOrder = 2
+    TabOrder = 0
     Visible = False
   end
   object imgPass: TImage
@@ -1659,7 +1631,7 @@ object frmMain: TfrmMain
     ClientWidth = 801
     Color = clSilver
     ParentColor = False
-    TabOrder = 3
+    TabOrder = 1
     object imgHeartsReveal: TImage
       Left = 160
       Height = 34
@@ -3129,6 +3101,130 @@ object frmMain: TfrmMain
     Width = 24
     Caption = '123'
     ParentColor = False
+  end
+  object labWestHandPoints: TLabel
+    Left = 613
+    Height = 17
+    Top = 656
+    Width = 35
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labNorthHandPoints: TLabel
+    Left = 648
+    Height = 17
+    Top = 656
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labEastHandPoints: TLabel
+    Left = 693
+    Height = 17
+    Top = 656
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labSouthHandPoints: TLabel
+    Left = 738
+    Height = 17
+    Top = 656
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labSouthGamePoints: TLabel
+    Left = 738
+    Height = 17
+    Top = 675
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labEastGamePoints: TLabel
+    Left = 693
+    Height = 17
+    Top = 675
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labNorthGamePoints: TLabel
+    Left = 648
+    Height = 17
+    Top = 675
+    Width = 45
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object labWestGamePoints: TLabel
+    Left = 613
+    Height = 17
+    Top = 675
+    Width = 35
+    Alignment = taRightJustify
+    AutoSize = False
+    Caption = '1234'
+    Color = clMoneyGreen
+    Font.Height = -13
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
   end
   object timClearTrick: TTimer
     Enabled = False

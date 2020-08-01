@@ -17,8 +17,9 @@
         <ComponentName Value="frmMain"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <TopLine Value="3512"/>
-        <CursorPos X="31" Y="3533"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="849"/>
+        <CursorPos X="41" Y="849"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -41,7 +42,6 @@
         <ComponentName Value="frmAbout"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <TopLine Value="25"/>
         <CursorPos X="71" Y="68"/>
@@ -53,123 +53,123 @@
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1927" Column="8" TopLine="1891"/>
+        <Caret Line="111" Column="21" TopLine="89"/>
       </Position1>
       <Position2>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2145" Column="8" TopLine="2108"/>
+        <Caret Line="112" Column="20" TopLine="89"/>
       </Position2>
       <Position3>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2242" Column="8" TopLine="2206"/>
+        <Caret Line="113" Column="21" TopLine="89"/>
       </Position3>
       <Position4>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2265" Column="10" TopLine="2229"/>
+        <Caret Line="261" Column="11" TopLine="224"/>
       </Position4>
       <Position5>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2294" Column="14" TopLine="2258"/>
+        <Caret Line="714" Column="27" TopLine="677"/>
       </Position5>
       <Position6>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2366" Column="12" TopLine="2329"/>
+        <Caret Line="715" Column="26" TopLine="678"/>
       </Position6>
       <Position7>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2476" Column="8" TopLine="2440"/>
+        <Caret Line="716" Column="27" TopLine="679"/>
       </Position7>
       <Position8>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2539" Column="8" TopLine="2502"/>
+        <Caret Line="717" Column="26" TopLine="680"/>
       </Position8>
       <Position9>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3042" Column="8" TopLine="3005"/>
+        <Caret Line="720" Column="13" TopLine="683"/>
       </Position9>
       <Position10>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3093" Column="12" TopLine="3057"/>
+        <Caret Line="916" Column="32" TopLine="880"/>
       </Position10>
       <Position11>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3903" Column="10" TopLine="3866"/>
+        <Caret Line="922" Column="67" TopLine="886"/>
       </Position11>
       <Position12>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3904" Column="10" TopLine="3867"/>
+        <Caret Line="927" Column="66" TopLine="891"/>
       </Position12>
       <Position13>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3905" Column="10" TopLine="3868"/>
+        <Caret Line="932" Column="67" TopLine="896"/>
       </Position13>
       <Position14>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3906" Column="10" TopLine="3869"/>
+        <Caret Line="937" Column="66" TopLine="901"/>
       </Position14>
       <Position15>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3915" Column="16" TopLine="3878"/>
+        <Caret Line="2397" Column="30" TopLine="2360"/>
       </Position15>
       <Position16>
         <Filename Value="newcards.pas"/>
-        <Caret Line="396" Column="16" TopLine="374"/>
+        <Caret Line="2403" Column="65" TopLine="2366"/>
       </Position16>
       <Position17>
         <Filename Value="newcards.pas"/>
-        <Caret Line="2803" TopLine="2778"/>
+        <Caret Line="2408" Column="64" TopLine="2371"/>
       </Position17>
       <Position18>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3334" Column="91" TopLine="181"/>
+        <Caret Line="2413" Column="65" TopLine="2376"/>
       </Position18>
       <Position19>
         <Filename Value="newcards.pas"/>
-        <Caret Line="32" Column="14" TopLine="10"/>
+        <Caret Line="2418" Column="64" TopLine="2381"/>
       </Position19>
       <Position20>
         <Filename Value="newcards.pas"/>
-        <Caret Line="128" Column="22" TopLine="92"/>
+        <Caret Line="110" Column="20" TopLine="89"/>
       </Position20>
       <Position21>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1473" Column="50" TopLine="1402"/>
+        <Caret Line="111" Column="21" TopLine="89"/>
       </Position21>
       <Position22>
         <Filename Value="newcards.pas"/>
-        <Caret Line="34" Column="12" TopLine="13"/>
+        <Caret Line="112" Column="20" TopLine="89"/>
       </Position22>
       <Position23>
         <Filename Value="newcards.pas"/>
-        <Caret Line="129" TopLine="101"/>
+        <Caret Line="113" Column="21" TopLine="89"/>
       </Position23>
       <Position24>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1439" Column="18" TopLine="1427"/>
+        <Caret Line="261" Column="11" TopLine="224"/>
       </Position24>
       <Position25>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1490" Column="73" TopLine="1454"/>
+        <Caret Line="714" Column="27" TopLine="677"/>
       </Position25>
       <Position26>
         <Filename Value="newcards.pas"/>
-        <Caret Line="33" Column="17" TopLine="11"/>
+        <Caret Line="715" Column="26" TopLine="678"/>
       </Position26>
       <Position27>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1416" Column="15" TopLine="1403"/>
+        <Caret Line="716" Column="27" TopLine="679"/>
       </Position27>
       <Position28>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1415" Column="15" TopLine="1402"/>
+        <Caret Line="717" Column="26" TopLine="680"/>
       </Position28>
       <Position29>
         <Filename Value="newcards.pas"/>
-        <Caret Line="1414" Column="5" TopLine="1394"/>
+        <Caret Line="720" Column="13" TopLine="683"/>
       </Position29>
       <Position30>
         <Filename Value="newcards.pas"/>
-        <Caret Line="3173" Column="34" TopLine="3163"/>
+        <Caret Line="916" Column="17" TopLine="880"/>
       </Position30>
     </JumpHistory>
     <RunParams>
