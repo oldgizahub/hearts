@@ -1,7 +1,7 @@
 object frmMain: TfrmMain
-  Left = 481
+  Left = 612
   Height = 712
-  Top = 156
+  Top = 149
   Width = 798
   Caption = 'Common Loon Hearts'
   ClientHeight = 712
@@ -1691,9 +1691,9 @@ object frmMain: TfrmMain
       Height = 41
       Top = 0
       Width = 97
-      Max = 40
+      Max = 30
       OnChange = tbarSpeedChange
-      Position = 40
+      Position = 25
       TickStyle = tsNone
       TabOrder = 0
     end

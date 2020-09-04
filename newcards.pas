@@ -232,6 +232,9 @@ Const
    kingofspades           : card = sk;
    aceofspades            : card = sa;
 
+   playername             : array [player] of shortstring
+                          = ('west', 'north', 'east', 'south');
+
 Var
 
     // These are global variables.
@@ -293,6 +296,8 @@ Var
   playerdanger            : array [player] of smallint;
   playerstanding          : array [player] of smallint;
   playeroutofsuit         : array [player,suit] of boolean;
+
+  projectedtrickwinner    : player;
 
   receivecards            : array [player] of cardset;
   replayinprogress        : boolean = false;
@@ -389,9 +394,9 @@ procedure getcontrolplay;                                               forward;
 procedure stopcontrolplay;                                              forward;
 procedure calculateplayerstandings;                                     forward;
 procedure calculateplayerdangers;                                       forward;
-function  oktodropqueen (p: player; q: player) : boolean;               forward;
+function  oktogivepoints (xcard: card) : boolean;                       forward;
 procedure checkforcontrol;                                              forward;
-procedure projecttrickwinner;                                           forward;
+function  canprojecttrickwinner (xcard: card) : boolean;                forward;
 
   // Card display
 procedure resetcardpositions;                                           forward;
@@ -424,6 +429,7 @@ function  image_to_card      (imagenum : smallint; p : player) : card;  forward;
 function  pickarandomcard    (xcards : cardset)                : card;  forward;
 function  cardsuit           (x: card)                         : suit;  forward;
 function  cardrank           (x : card)                    : smallint;  forward;
+function  averagerank        (xcards : cardset)              : single;  forward;
 function  highestofsuit     (xcards: cardset; suitset: cardset) : card; forward;
 function  highestofall       (xcards: cardset)                 : card;  forward;
 function  lowestofsuit      (xcards: cardset; suitset: cardset) : card; forward;
@@ -728,7 +734,7 @@ end;
 //   - clearing away the trick
 //   - robot play
 //
-// We set the slider to the middle. The slider is an indication of
+// We set the slider close to the right. The slider is an indication of
 // speed. Moving it to the right means increasing the speed of play.
 // We have to convert that to a time delay. That's the inverse, so
 // we subtract the slider position. We want the delay to range from
@@ -764,7 +770,7 @@ begin
 
   frmmain.tbarspeed.min := 0;
   frmmain.tbarspeed.max := 30;
-  frmmain.tbarspeed.position := (frmmain.tbarspeed.min + frmmain.tbarspeed.max) div 2;
+  frmmain.tbarspeed.position := 25;
 
   playdelay := 100 * ((frmmain.tbarspeed.max +1) - frmmain.tbarSpeed.position);
   humantimerson := true;
@@ -884,7 +890,7 @@ begin
       // So do nothing.
 
     'A' : begin
-      //showmessage ('Situation A - ignore');
+      bugit ('Situation A - ignore');
       exit;
     end;
 
@@ -898,7 +904,7 @@ begin
       // and decrement their number of games won.
 
     'B' : begin
-      //showmessage ('Situation B - replay last hand of game');
+      bugit ('Situation B - replay last hand of game');
       for p in player do begin
         handcards[p] := savecurrenthand[p];
         gamepoints[p] := savecurrentgamepoints[p];
@@ -958,7 +964,7 @@ begin
       // No need to change the displayed score or handnumber.
 
     'C' : begin
-      //showmessage ('Situation C - replay this hand');
+      bugit ('Situation C - replay this hand');
       for p in player do begin
         handcards[p] := savecurrenthand[p];
       end;
@@ -979,7 +985,7 @@ begin
       // save the cards of one previous hand, and this is it.
 
     'D' : begin
-      //showmessage ('Situation D - replay previous hand');
+      bugit ('Situation D - replay previous hand');
       for p in player do begin
         handcards[p] := saveprevioushand[p];
         savecurrenthand[p] := saveprevioushand[p];
@@ -1547,15 +1553,10 @@ procedure processcardclick;
 
 var
   c                       : card;
- {x                       : shortstring;}
 
 begin
 
   c := image_to_card (imagenum, humanplayer);
-
-  {writestr(x, c);
-   showmessage ('clicked image number: ' + inttostr(imagenum)
-              + ' which is card: ' + x);}
 
     // Which mode is it?
 
@@ -1619,7 +1620,7 @@ begin
     // Make sure the user has selected 3 cards.
 
   if countcards(passcards[humanplayer]) < 3 then begin
-     //showmessage ('Select 3 cards first');
+    bugit ('Select 3 cards first');
     exit;
   end;
 
@@ -1628,9 +1629,8 @@ begin
   writestr(s, passdirection);
   bugit ('Pass cards: ' + s);
   for p in player do begin
-    writestr(s, p);
     writestr(t, cards_to_cardnames(passcards[p]));
-    bugit (s + ': ' + t);
+    bugit (playername[p] + ': ' + t);
   end;
 
     // Remove any hint tags.
@@ -1820,10 +1820,10 @@ end;
 //===================================================================
 
 procedure startgame;
+
 var
   i                       : smallint;
   p                       : player;
-  s                       : string = '';
 
 begin
 
@@ -1870,8 +1870,7 @@ begin
     // Choose dealer, set direction of pass, and start the first hand.
 
   choosedealer;
-  writestr (s, dealer);
-  bugit ('Dealer: ' + s);
+  bugit ('Dealer: ' + playername[dealer]);
 
   passdirection := high(passway);   { Will be set to low on first hand.}
   handnumber := 0;
@@ -2144,7 +2143,6 @@ var
   p                       : player;
   points                  : smallint;
   pointyplayers           : smallint;
-  s                       : string;
   winnernumber            : smallint;
 
 begin
@@ -2184,9 +2182,7 @@ begin
   end;
 
   trickwinner := trickplayer[winnernumber];
-
-  writestr (s, trickwinner);
-  bugit ('trickwinner: ' + s);
+  bugit ('trickwinner: ' + playername[trickwinner]);
 
     // Were there any points played in this trick?
     // If so, add them to the trick winner's points for this hand.
@@ -2243,16 +2239,6 @@ begin
     end;
   end;
 
-    // See if any player is out of the tricksuit.
-    // This knowledge could be used in future plays (by any player since it
-    // is visible to all).
-
-  for i := 2 to 4 do begin
-    if not (trickcard[i] in tricksuit) then begin
-      playeroutofsuit[trickplayer[i],cardsuit(trickcard[i])] := true;
-    end;
-  end;
-
     // Remove their played cards from their hand
     // (moved to maketheplay so removed from hand as they play, not at
     // end of trick)
@@ -2297,7 +2283,6 @@ var
   g                       : shortstring;
   h                       : shortstring;
   p                       : player;
-  s                       : shortstring;
   shotthemoon             : boolean = false;
 
 begin
@@ -2307,8 +2292,7 @@ begin
   for p in player do begin
     if handpoints[p] = 26 then begin
       shotthemoon := true;
-      writestr (s, p);
-      bugit (s + ' shot the moon');
+      bugit (playername[p] + ' shot the moon');
       break;
     end;
   end;
@@ -2388,7 +2372,7 @@ procedure finishgame;
 
 var
   p                       : player;
-  s,t                     : shortstring;
+  s                       : shortstring;
 
 begin
 
@@ -2396,8 +2380,7 @@ begin
   for p in player do begin
 
     if p in winners then begin
-      writestr (t, p);
-      s := s + ' ' + t;
+      s := s + ' ' + playername[p];
 
       gameswon[p] := gameswon[p] + 1;
 
@@ -2560,10 +2543,7 @@ procedure selectforthisplayer(p : player);
 
 var
   c                       : card;
-  clubcount               : smallint;
-  diamondcount            : smallint;
   hc                      : cardset;
-  heartcount              : smallint;
   i                       : smallint;
   pc                      : cardset;
   passcount               : smallint = 0;
@@ -2571,6 +2551,8 @@ var
   slotsleft               : smallint;
   spadecount              : smallint;
   xc                      : cardset;
+  xcount                  : smallint;
+  xvalue                  : single;
 
 begin
 
@@ -2620,14 +2602,15 @@ begin
     exit;
   end;
 
-    // If we still have cards to pass, can we empty a suit (except for spades).
-    // Of course this ignores the fact that we may be passing very low cards
-    // which isn't a good idea.
+    // If we still have cards to pass, can we empty a suit (except for spades)?
+    // But don't choose them if they are very low cards.
 
-  clubcount := countcards (hc * clubs);
-  if clubcount <= (3 - passcount) then begin
-    pc := pc + (hc * clubs);
-    hc := hc - clubs;
+  xc := hc * clubs;
+  xcount := countcards (xc);
+  xvalue := averagerank (xc);
+  if (xcount <= (3 - passcount)) and (xvalue > 4) then begin
+    pc := pc + xc;
+    hc := hc - xc;
   end;
 
   passcount := countcards (pc);
@@ -2636,10 +2619,12 @@ begin
     exit;
   end;
 
-  diamondcount := countcards (hc * diamonds);
-  if diamondcount <= (3 - passcount) then begin
-    pc := pc + (hc * diamonds);
-    hc := hc - diamonds;
+  xc := hc * diamonds;
+  xcount := countcards (xc);
+  xvalue := averagerank (xc);
+  if (xcount <= (3 - passcount)) and (xvalue > 4) then begin
+    pc := pc + xc;
+    hc := hc - xc;
   end;
 
   passcount := countcards (pc);
@@ -2648,10 +2633,12 @@ begin
     exit;
   end;
 
-  heartcount := countcards (hc * hearts);
-  if heartcount <= (3 - passcount) then begin
-    pc := pc + (hc * hearts);
-    hc := hc - hearts;
+  xc := hc * hearts;
+  xcount := countcards (xc);
+  xvalue := averagerank (xc);
+  if (xcount <= (3 - passcount)) and (xvalue > 4) then begin
+    pc := pc + xc;
+    hc := hc - xc;
   end;
 
   passcount := countcards (pc);
@@ -2974,6 +2961,8 @@ begin
 
   basicplay;
 
+  canprojecttrickwinner(playcard);
+
 end;
 
 //===================================================================
@@ -2982,16 +2971,12 @@ end;
 
 procedure maketheplay;
 
-var
-  s                       : string;
-
 begin
 
   trickcard[playnumber] := playcard;
   trickplayer[playnumber] := playplayer;
 
-  writestr (s, playplayer);
-  bugit (s + ': ' + cards_to_cardnames([playcard]));
+  bugit (playername[playplayer] + ': ' + cards_to_cardnames([playcard]));
 
     // Copy image to the centre
 
@@ -3054,6 +3039,18 @@ begin
   include (logplayer[playplayer], playcard);
   include (logsuit[playsuit], playcard);
 
+    // See if any player is out of the tricksuit.
+    // This knowledge could be used in future plays (by any player since it
+    // is visible to all). We record this right away, at the time of
+    // the play, not when the trick ends, because the info could be useful
+    // to later players in the same trick.
+
+  if playnumber > 1 then begin
+    if not (playcard in tricksuit) then begin
+      playeroutofsuit[playplayer,cardsuit(playcard)] := true;
+    end;
+  end;
+
 end;
 
 //===================================================================
@@ -3105,6 +3102,14 @@ end;
 
 //###################################################################
 // STRATEGY ROUTINES
+//
+// These are done from the point of view of the player whose turn it
+// is now to play a card. We only make use of what that player knows,
+// namely what is in their own hand and what has been played by
+// everybody in previous tricks and before them in this trick. We
+// never look into the current hands of the other players. We just
+// try to figure out what they might, or must, have based on publicly
+// available information and what is in our own hand.
 //###################################################################
 
 //===================================================================
@@ -3136,6 +3141,15 @@ begin
 
     // Put the trick cards played so far into a set.
     // Then extract just the cards that are of the tricksuit.
+    //
+    // Note that if this is play 1, the following still works. We just
+    // end up with empty sets for trickset and tricksetsuitcards.
+    // (tricksuit is already defined as empty at the start of the trick.)
+    // These empty sets are no problem. The "basicleading" routine
+    // makes no use of them (naturally). The only wrinkle is in the
+    // projecttrickwinner routine, where we use the suit of the
+    // anticipated lead as the tricksuit when considering the case of
+    // leading the trick.
 
   trickset := [];
   for i := 1 to playnumber - 1 do begin
@@ -3240,9 +3254,13 @@ begin
   if     (queenofspades in spadesmine)
      and (spadesothers <= [kingofspades, aceofspades])
      and (not (spadesothers = [])) then begin
-    playcard := queenofspades;
-    bugit ('Forcing someone to take my queen of spades');
-    exit;
+    if oktogivepoints (queenofspades) then begin
+      playcard := queenofspades;
+      bugit ('Forcing someone to take my queen of spades');
+      exit;
+    end
+    else
+      bugit ('Choosing not to force someone to take my queen of spades');
   end;
 
     // Can I force someone to play their queen of spades?
@@ -3252,9 +3270,14 @@ begin
 
   if     (spadesothers = [queenofspades])
      and (not (spadesx = [])) then begin
-    playcard := pickarandomcard(spadesx);
-    exit;
-    bugit ('Forcing someone to swallow their own queen of spades');
+    c := pickarandomcard(spadesx);
+    if oktogivepoints (c) then begin
+      playcard := c;
+      bugit ('Forcing someone to swallow their own queen of spades');
+      exit;
+    end
+    else
+      bugit ('Choosing not to force someone to swallow their own queen of spades');
   end;
 
     // If the queen of spades is in someone else's hand still, and I don't have
@@ -3266,9 +3289,14 @@ begin
   if     (queenofspades in spadesothers)
      and (([kingofspades, aceofspades] * spadesmine) = [])
      and (not (spadesmine = [])) then begin
-    playcard := highestofall (spadesmine);
-    bugit ('Hoping to make the queen drop - without fear');
-    exit;
+    c := highestofall (spadesmine);
+    if oktogivepoints (c) then begin
+      playcard := c;
+      bugit ('Hoping to make the queen drop - without fear');
+      exit;
+    end
+    else
+      bugit ('Choosing not try to make the queen drop - I don''t have K or A to worry about');
   end;
 
     // Can I try to get the queen of spades to drop?
@@ -3276,12 +3304,17 @@ begin
     // sufficient number of spades not to worry about getting it later myself,
     // then lead a spade - but not the king or ace.
 
-    if     (queenofspades in spadesothers)
-       and (countcards(spadesx) >= countcards(spadesothers)) then begin
-      playcard := highestofall(spadesx);
+  if     (queenofspades in spadesothers)
+     and (countcards(spadesx) >= countcards(spadesothers)) then begin
+    c := highestofall(spadesx);
+    if oktogivepoints (c) then begin
+      playcard := c;
       bugit ('Hoping I have enough spades to make queen drop and not get it');
       exit;
-    end;
+    end
+    else
+      bugit ('Choosing not to try to make queen drop - I have spades enough not to worry');
+  end;
 
     // Don't want to lead a card for which only I have cards of that suit left
     // because I will be forced to take that trick.
@@ -3307,16 +3340,37 @@ begin
     bestlegal := bestlegal - (handcards[playplayer] * hearts);
   end;
 
-    // If I'm left with nothing, then it doesn't matter what I play since I
-    // am perforce going to have to take all the remaining tricks.
+    // If I'm left with nothing, then that means I have to take this trick.
+    //
+    // But it doesn't follow that I must take *all* remaining tricks. It could
+    // be that control is not yet broken, and someone may drop a heart, and
+    // then any hearts I may have will come into my playlegal cards for the
+    // next trick, and I can make someone else take a trick by leading a
+    // heart next time.
+    //
+    // This is important if I have the Queen of Spades in the legal set.
+    // It means I may have an opportunity to play it later after all.
+    // All this to say, don't play just any random card from my legal set,
+    // because that could include the Queen. Play something else.
+    // We could just drop the queen from the potential set, regardless whether
+    // we actually have it or not. But instead, we make it explicit in the code.
 
   if bestlegal = [] then begin
-    playcard := pickarandomcard (playlegal);
-    bugit ('Have to lead and take all remaining tricks');
+    if queenofspades in playlegal then begin
+      playcard := pickarandomcard (playlegal - [queenofspades]);
+      bugit ('Have to lead and take this trick, but avoiding playing queen of spades');
+    end
+    else begin
+      playcard := pickarandomcard (playlegal);
+      bugit ('Have to lead and take this trick');
+    end;
     exit;
   end;
 
     // If I'm left with just 1 card that "may" not take a trick, play that.
+    // (This isn't always the best strategy either. Maybe that 1 card is the
+    // queen of spades - or the king or ace, and the queen is still out there.
+    // But it's OK in most situations, so we'll leave it for now.)
 
   if countcards(bestlegal) = 1 then begin
     playcard := cardpos_to_card (1, bestlegal);
@@ -3356,11 +3410,16 @@ begin
     // Note that for the next tests, we are using "bestlegal", the cardset
     // reduced by eliminating cards from suits where I have all the remaining
     // ones, and the high spades.
+    //
+    // And note the element of randomness put in to make things more
+    // unpredictable to the human player. We don't want them to be able to
+    // anticipate the computer players' choices all the time.
 
     // Lead a high diamond, if only a very few have been played and I have one.
 
   if     (countcards (loghand * diamonds) <= 2)
-     and (not (bestlegal * diamonds = [])) then begin
+     and (not (bestlegal * diamonds = []))
+     and (random(10) >= 4) then begin
     playcard := highestofsuit (bestlegal, diamonds);
     bugit ('Few diamonds played already, playing highest I have');
     exit;
@@ -3369,7 +3428,8 @@ begin
     // Lead a low club, if only a few have been played and I have one.
 
   if     (countcards (loghand * clubs) <= 4)
-     and (not (bestlegal * clubs = [])) then begin
+     and (not (bestlegal * clubs = []))
+     and (random(10) >= 3) then begin
     c := lowestofsuit (bestlegal, clubs);
     if cardrank (c) < 8 then begin
       playcard := c;
@@ -3382,7 +3442,8 @@ begin
 
   if not ((bestlegal * hearts) = []) then begin
     c := lowestofsuit (bestlegal, hearts);
-    if cardrank (c) < 8 then begin
+    if     (cardrank (c) < 8)
+       and (random(10) >=3) then begin
       playcard := c;
       bugit ('Leading a low heart');
       exit;
@@ -3392,7 +3453,8 @@ begin
     // Lead a spade if the queen has dropped already, since no more danger.
 
   if     (queenofspades in loghand)
-     and (not (bestlegal * spades = [])) then begin
+     and (not (bestlegal * spades = []))
+     and (random(10) >= 2) then begin
     playcard := lowestofsuit (bestlegal, spades);
     bugit ('Leading a low spade, after queen is gone');
     exit;
@@ -3403,7 +3465,8 @@ begin
   if     (countcards (loghand * diamonds) > 2)
      and (not (bestlegal * diamonds = [])) then begin
     c := lowestofsuit (bestlegal, diamonds);
-    if cardrank(c) < 8 then begin
+    if     (cardrank(c) < 8)
+       and (random(10) >= 1) then begin
       playcard := c;
       bugit ('Several diamonds played already, leading lowest I have');
       exit;
@@ -3411,9 +3474,10 @@ begin
   end;
 
     // If all else fails, play the lowest card I have from my legal set.
+    // Unless it's the queen of spades.
 
-  playcard := lowestofall(playlegal);
-  bugit ('Leading lowest I have');
+  playcard := lowestofall(playlegal - [queenofspades]);
+  bugit ('Leading lowest I have - except for queen of spades if I have it');
 
 end;
 
@@ -3421,17 +3485,6 @@ end;
 // Basic, not leading, not following suit.
 //
 // This is the opportunity to get rid of my dangerous cards.
-// In order of desirability of getting rid of:
-//   - drop the queen of spades
-//   - get rid of the ace or king of spades - unless we need it
-//       to protect the queen. How could this happen? Wouldn't
-//       we have dropped the queen in the test just above? Normally,
-//       yes. But it is possible that we can have the queen and king
-//       and/or ace in our hand, but the queen is not in our legal
-//       set while the king and ace are - namely on the first trick.
-//       Hence the need for this extra caveat.
-//   - get rid of hearts
-//   - play highest card I have
 //
 // Could refine this a lot. eg why get rid of the ace of spades if
 // the queen has already dropped, or if there are no other spades
@@ -3442,12 +3495,13 @@ end;
 
 procedure basicnotleadingnotfollowingsuit;
 
+var
+  c                       : card;
+  xset                    : cardset;
+
 begin
 
-  if queenofspades in playlegal then begin
-    playcard := queenofspades;
-    exit;
-  end;
+    // Get rid of ace of spades, unless I need it to protect queen.
 
   if     (aceofspades in playlegal)
      and (not (queenofspades in handcards[playplayer])) then begin
@@ -3455,16 +3509,67 @@ begin
     exit;
   end;
 
+    // Same for king of spades.
+
   if     (kingofspades in playlegal)
      and (not (queenofspades in handcards[playplayer])) then begin
     playcard := kingofspades;
     exit;
    end;
 
+    // If it's not OK to give points, don't play the queen of spades
+    // or any hearts, if I have them. If all I have is the queen of
+    // spades and hearts, then at least don't play the queen.
+
+  c := highestofall (playlegal);     {Card choice is irrelevant to the
+                                      oktogivepoints routine since we are not
+                                      following suit and hence have no effect
+                                      on trickwinner.}
+
+  if not (oktogivepoints (c)) then begin
+    xset := (playlegal - hearts) - [queenofspades];
+    if xset <> [] then begin          {Something besides hearts and queen of spades}
+      playcard := highestofall (xset);
+      bugit ('avoiding playing heart or queen of spades - if I have them');
+      exit;
+    end
+    else begin                        {Just heart(s) and possibly queen of spades}
+      xset := (playlegal - [queenofspades]);
+      if xset <> [] then begin        {A formality - we know not empty because playlegal}
+                                      {has more than 1 card - or we wouldn't be here.}
+        playcard := highestofall (xset);
+        bugit ('Avoiding playing at least queen of spades - if I have it');
+        exit;
+      end;
+    end;
+  end;
+
+    // It is OK to play points.
+    // (The above exhausted all possibilities when it's not OK.)
+
+    // Preferentially, play the queen of spades if I have it.
+
+  if queenofspades in playlegal then begin
+    playcard := queenofspades;
+    exit;
+  end;
+
+    // Play my highest heart, if I have one.
+
   if not ((playlegal * hearts) = []) then begin
     playcard := highestofsuit (playlegal, hearts);
     exit;
   end;
+
+    // Play my highest card.
+    // (You may think this highestofall may result in the king or ace of spades
+    // being played after all, when we didn't want to when we have the queen to
+    // protect, as we checked above. But this won't happen. Why? Because if we
+    // do have the queen, we would have played it just above, and we won't
+    // reach here. However, that possibiliy does exist above in the
+    // highestofall (xset). We could refine that case to check for queen and
+    // king and/or ace, and avoid playing the king or ace. But we will let it
+    // go as just another small risk.)
 
   playcard := highestofall (playlegal);
 
@@ -3475,7 +3580,6 @@ end;
 // Basic, following spades.
 //
 //   - if k or a played before me in this trick, and I have q, play it
-
 //   - if I am last in this trick, and q not played before me, and I
 //     have k or a, play it
 //   - if q played in some previous trick, and I have k or a, play it
@@ -3485,9 +3589,18 @@ end;
 //     the player(s) after you have the king or ace, it could be the
 //     trick leader has one or both of them. after all they did lead
 //     spades, and we don't know what they have left in their hands, or
-//     if the players after me have any spades at all.
+//     if the players after me have any spades at all. well, we might
+//     know from before that the ones after me have no spades when they
+//     couldn't follow suit in a previous trick.
 //   - however, if I have the queen (and the king or ace was not played
-//     before me, play any other spade I have rather than play the queen.
+//     before me - that's a previous check), then I must have other
+//     spades (because if I had only the queen, and we are following
+//     spades, then I wouldn't be here because only one card in legal
+//     set); so play a spade other than the queen. Make it the lowest
+//     I have, so that we avoid playing the king or ace, if I have
+//     one or both of them, because playing it as play 2 or 3 in the
+//     trick is a good signal that I must have the queen, otherwise
+//     would fear later play in trick dropping the queen on me.
 //   - avoid taking the trick
 //===================================================================
 
@@ -3497,8 +3610,10 @@ begin
 
   if      ((kingofspades in trickset) or (aceofspades in trickset))
       and (queenofspades in playlegal) then begin
-    playcard := queenofspades;
-    exit;
+    if oktogivepoints (queenofspades) then begin
+      playcard := queenofspades;
+      exit;
+    end;
   end;
 
   if      (playnumber = 4)
@@ -3516,9 +3631,10 @@ begin
 
   if     (queenofspades in playlegal)
      and (not ((playlegal - [queenofspades]) = [])) then begin
-    playcard := highestofall (playlegal - [queenofspades]);
+    playcard := lowestofall (playlegal - [queenofspades]);
     exit;
   end;
+
     // This covers the case where the queen has been played in this trick and
     // I want to avoid it, or it may be played after me and I want to avoid it.
 
@@ -3529,18 +3645,30 @@ end;
 //===================================================================
 // Basic, following hearts.
 //
-// We don't want any hearts. We should refine this by considering
-// if control is not broken, and the mooted controller has a bunch
-// of points, and will win this trick, and I can break control by
-// playing last (without taking queen of spades), then do so
+// We don't want any hearts. But we will take them in order to avoid
+// making another player break 100 causing us to lose.
+//
+// We should refine this by considering if control is not broken, and
+// the mooted controller has a bunch of points, and will win this
+// trick, and I can break control by playing last (without taking
+// queen of spades), then do so.
 //===================================================================
 
 procedure basicfollowhearts;
 
+var
+  c                       : card;
+
 begin
 
-  playcard := cardtoavoidtrick;
+  c := cardtoavoidtrick;
 
+  if oktogivepoints (c) then begin
+    playcard := c;
+    end
+  else begin
+    playcard := highestofsuit (playlegal, hearts);
+  end;
 end;
 
 //===================================================================
@@ -3556,9 +3684,12 @@ end;
 // remaining tricks when I could have avoided it by playing a smaller
 // club or diamond. We'll refine that later.
 //
-// What about if I'm playing last (and there is no queen of spades?)
-// Maybe should take it. Unless I have all the rest, that would
-// force me to lead, and maybe don't want to.
+// If I am not playing last, then if only a few cards of the suit
+// have been played, then I will risk playing my highest. Otherwise,
+// I will try to avoid it.
+//
+// Note the randomness inserted to make the computer's choices not
+// quite so predictable to the human player.
 //===================================================================
 
 procedure basicfollowother;
@@ -3570,13 +3701,15 @@ begin
     exit;
   end;
 
-  if playnumber = 4 then begin
+  if     (playnumber = 4)
+     and (random(10) >= 2) then begin
     playcard := highestofall(playlegal);
     exit;
   end;
 
-  if    ((tricksuit = clubs)    and (countcards (logsuit[club])    <=4))
-     or ((tricksuit = diamonds) and (countcards (logsuit[diamond]) <=4)) then begin
+  if     (   ((tricksuit = clubs)    and (countcards (logsuit[club])    <=4))
+          or ((tricksuit = diamonds) and (countcards (logsuit[diamond]) <=4)))
+     and (random(10) >=2) then begin
     playcard := highestofall (playlegal);
     end
   else begin
@@ -3686,75 +3819,511 @@ begin
 end;
 
 //===================================================================
-// Is it OK to drop the queen of spades? (or to force it out)
+// Is it OK to give points to a player? i.e., drop the queen of
+// spades, or force it out, or give hearts.
 //
-// If it means the player who takes would bust 100, and I would lose
-// then I don't want to do it.
+// Most of the time, that's exactly what we want to do. But if
+// giving the points would put that player in danger of breaking 100
+// and giving the win to someone other than me (the person giving
+// the points), then we want to avoid that. But we can only do that
+// if we know who is going to win the trick.
 //
-// p is the player making the play, q is the player who would get it.
-// Sometimes, we aren't sure who would get it (eg if we aren't
-// playing last, we might not know). In that case, q is the same as p
-// just to let us know this is the case.
+// So we need to know what the scores are, who is in danger, and who
+// will win the trick. It is not always possible to determine the
+// last item, so there the final outcome of this routine is not
+// always certain.
+//
+// Note that this routine does not consider the case where it is
+// advisable to give points to a player in danger to help them gain
+// control and get out of danger.
 //===================================================================
 
-function oktodropqueen (p: player; q: player) : boolean;
+function oktogivepoints (xcard: card) : boolean;
 
 var
   dropit                  : boolean;
+  p                       : player;
+  someoneindanger         : boolean;
 
 begin
 
-    // If I am in first place, then OK to drop/force queen of spades
-    // regardless of anything else. (But we should take into account
-    // points taken in this hand, even if can't be certainly ascribed.)
+    // Calculate the player standings.
+    //
+    // If I am in first place, then OK to give points regardless
+    // of anything else. (We should really take into account
+    // points taken in this hand, even if can't be certainly ascribed.
+    // But we won't go that far at this point.)
 
   calculateplayerstandings;
-  if playerstanding[p] = 1 then begin
+
+  if playerstanding[playplayer] = 1 then begin
     result := true;
     exit;
   end;
 
-    // I am not in first place.
-    // If I don't know the target, then I will drop it if I am in danger,
-    // otherwise will not. The latter is a little risky.
-    // If I do know the target, then I will drop it if they are not in danger,
-    // otherwise will not (because they could bust and I am not in first, so
-    // would lose).
+    // I am not in first place. Calculate who is in danger.
+    //
+    // If no other player (besides me) is in any danger of breaking 100,
+    // then I will drop it, even if this is not the optimum strategy,
+    // rather than regret keeping it.
 
   calculateplayerdangers;
 
-  case p=q of
-
-    true : begin
-      case playerdanger[p] of
-        0..5 : dropit := false;
-        else   dropit := true;
+  someoneindanger := false;
+  for p in player do begin
+    if p <> playplayer then begin
+      if playerdanger[p] > 5 then begin
+        someoneindanger := true;
+        break;
       end;
     end;
+  end;
+
+  if someoneindanger = false then begin
+    result := true;
+    exit;
+  end;
+
+  // Someone is in danger. Calculate who will win the trick, if possible.
+  //
+  // If I can't determine the winner, then I will drop the card if I am in danger.
+  // If I am not in danger, I will hold on to it, but not always just to be a
+  // bit unpredictable. Holding on carries the danger that I will end up with it.
+  // But dropping it when I don't know who is going to get it also carries
+  // the risk that it will end up with the person in danger.
+  //
+  // If the winner will be me, then I will not play it. (I could be the winner
+  // if it's spades and the cards played before me are lower, or if I lead the
+  // queen without knowing if someone is forced to play the king or ace.)
+  //
+  // If the winner will be someone else, then if they are in danger I will
+  // not drop it, otherwise I will.
+
+  dropit := false;
+
+  case canprojecttrickwinner (xcard) of
 
     false : begin
-      case playerdanger[q] of
-        0..5 : dropit := true;
-        else   dropit := false;
+      case playerdanger[playplayer] of
+        0..5 : begin
+          if random(10) >= 2 then begin
+            dropit := false;
+            end
+          else begin
+            dropit := true;
+            end;
+          end;
+        else   dropit := true;
       end;
-    end;
+    end; {false}
 
-  end;
+    true : begin
+      case (projectedtrickwinner = playplayer) of
+        true : dropit := false;
+        false: begin
+          case playerdanger[projectedtrickwinner] of
+            0..5 : dropit := true;
+            else   begin
+              dropit := false;
+              bugit ('refraining from dropping points on ' + playername[projectedtrickwinner]);
+            end; {else}
+          end; {case playerdanger}
+        end; {false}
+      end; {case projectedtrickwinner = playplayer}
+    end; {true}
+
+  end; {case canprojecttrickwinner}
 
   result := dropit;
 
 end;
 
 //===================================================================
-// Project trick winner.
-// It's important to know who is certainly, or likely going to win
-// the trick, before I play. It affects the decision to drop the
-// queen, drop a heart, etc.
+// Project the trick winner.
+//
+// This could be a general routine that tries to predict the trick
+// winner in general play. But that yields a certainty in only a few
+// situations, so it's not much use.
+//
+// Instead, we only really require this knowledge for specific
+// situations, namely where I plan to play the queen of spades and
+// want to know if it will end up with someone (the trick winner) who
+// will break 100 and thereby cause me to lose because I am not in
+// first place.
+//
+// To keep it a little more generalized, we will predict the trick
+// winner given the card I am going to play. This will always be for
+// now the queen of spades. But it could be anything. (I guess then
+// the routine could be queried multiple times to get the desired
+// result - i.e. so as to make another player win so they take points,
+// or not win so they lose control or so they don't bust 100 when I am
+// not in first place.)
+//
+// We return two pieces of information:
+//   - whether or not we can project the trick winner (function result)
+//   - which player that is (global projectedtrickwinner)
+//
+// We only deal with certainties here. We could be more subtle and
+// make best guesses, or say it will be either this player or that
+// player. But we will keep it simple. Either we know for sure, or
+// we don't.
+//
+// Note that this is all done from the point of view of the player
+// whose turn it is to play, like all the strategy routines.
+//
+// How does this routine work specifically when the card I a playing
+// is the queen of spades? Remember, our objective in using this
+// routine is to avoid giving it to a player who will break 100 and
+// cause me (the current computer player, not the human player) to
+// lose because I do not have the lowest score. But this routine
+// only attempts to determine who take the queen.
+//
+// There are 3 situations where the queen of spades will be
+// strategically dropped:
+//   (1) I am leading the qs because I know someone must play a or k
+//   (2) I am following spade lead, and someone has played k or a
+//   (3) I am dropping it on another suit lead
+//
+// In each of the above situations, sometimes we will know who is
+// going to get it, and sometimes we won't. It depends on what cards
+// have been played in previous tricks, what cards are played before
+// me in this trick, and what players are known to be out of the
+// trick suit. Only if we are playing last in the trick will we
+// know for sure who is going to get the queen. To summarize by
+// situation:
+//   (1) Usually, you don't know who. But it could be we know from
+//       previous tricks that only one other player has spades left.
+//   (2) If I am playing last, then we know who will take it if A and/or
+//       K was played. If playing 2 or 3, then A will take it if played.
+//       If K was played then will take it for sure only if A was played
+//      previous trick, or we know follower(s) don't have spades.
+//   (3) If highest remaining card of that suit played before me, then they
+//       will take it. Otherwise, know for sure only if we know followers
+//       are out of suit.
 //===================================================================
 
-procedure projecttrickwinner;
+function canprojecttrickwinner (xcard : card) : boolean;
+
+var
+  c                       : card;
+  cardsleftofsuit         : cardset;
+  i                       : smallint;
+  leadsuit                : cardset;
+  onlyplayerwithsuit      : player;
+  outofsuitcount          : smallint;
+  p                       : player;
+  winningcard             : card;
+  winnernumber            : smallint;
+  xsuit                   : suit;
 
 begin
+
+  result := false;   {assume we won't be able to determine trick winner}
+
+  case playnumber of
+
+      // ------------------------------------------------------------
+      // I am leading the trick.
+      //
+      // Take the entire suit.
+      // Subtract all cards of that suit played so far (logsuit).
+      // Subtract all my cards of that suit.
+      // Those are the cards that are left to play by others.
+      //
+      // If there are no cards left, then it's me.
+      // Otherwise ...
+      // Is the rank of my card > the rank of the highest card left?
+      // Yes - it's me
+      // No -  Is the rank of my card < the rank of the lowest card left?
+      //       Yes - then someone else must take it and win the trick.
+      //             We only know who for sure if we know that 2 out of the
+      //             3 players who follow my lead are known to be out of
+      //             that suit.
+      //             Note: this is the case when leading queen of spades
+      //                   because we know someone has to play the king
+      //                   or ace. We only know who if we know the other
+      //                   two have no spades
+      //       No  - then it depends on who plays what (further
+      //             analysis might determine who, but we won't do it)
+      // ------------------------------------------------------------
+
+    1 : begin
+
+        // First get the suit of my anticipated lead, since the tricksuit
+        // is not actually established until we make the play.
+
+      xsuit := cardsuit (xcard);
+      case xsuit of
+        club    : leadsuit := clubs;
+        diamond : leadsuit := diamonds;
+        spade   : leadsuit := spades;
+        heart   : leadsuit := hearts;
+      end;
+
+        // What cards are left to play of the suit I am going to lead
+        // (outside of my own hand)?
+
+      cardsleftofsuit := (leadsuit -  logsuit[xsuit]) - (leadsuit * handcards[playplayer]);
+
+        // None left - so I will lead and be the trick winner.
+
+      if cardsleftofsuit = [] then begin
+        projectedtrickwinner := playplayer;
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // Mine is higher than what's in anyone else's hand, so I am trickwinner.
+
+      if cardrank (xcard) > cardrank (highestofsuit (cardsleftofsuit, leadsuit)) then begin
+        projectedtrickwinner := playplayer;
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // Mine is lower than what's in anyone else's hand.
+        // Are two of the three players out of that suit?
+        // If so, the remaining one is the trickwinner.
+        // (Since we look at 3 players, if the count is 2, we must have
+        // set the onlyplayerwithsuit variable.)
+
+      if cardrank (xcard) < cardrank (lowestofsuit (cardsleftofsuit, leadsuit)) then begin
+        outofsuitcount := 0;
+        for p in player do begin
+          if p <> playplayer then begin
+            if playeroutofsuit[p,xsuit] = true then begin
+              outofsuitcount := outofsuitcount + 1;
+            end
+            else begin
+              onlyplayerwithsuit := p;
+            end;
+          end;
+        end;
+        if outofsuitcount = 2 then begin
+          projectedtrickwinner := onlyplayerwithsuit;
+          result := true;
+          bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+          exit;
+        end;
+      end;
+
+      result := false;
+      bugit (inttostr(playnumber) + ' ?');
+
+    end; {case 1}
+
+      // ------------------------------------------------------------
+      // I am playing second.
+      //
+      // There is no way to say that player 3 or 4 must win the trick.
+      // You might think, if players 1 and 2 play the suit, and player
+      // is known to be out, and the only card left to play is higher
+      // than what 1 and 2 played, then playe 4 must take the trick.
+      // But it could be that playe 1 has that card - we don't know
+      // that they are out. So it could be that 3 or 4 will win the
+      // trick, but we can never say for sure.
+      //
+      // So we can only say 1 or 2 must win the trick, but then only
+      // sometimes. So first we determine whether it's player 1 or me.
+      // Then check to see if the circumstances are met.
+      //
+      // - If both player 3 and 4 are known to be out of the suit
+      // - If the suit minus player 1's play and minus all my cards of that
+      //   suit leave nothing left
+      // - If what is left has no card higher than what player 1 or me
+      //   played
+      //
+      // Otherwise, we can't say.
+      // ------------------------------------------------------------
+
+    2 : begin
+
+        // Assume the trick winner will be 1.
+        // Then see if 2 (me) is about to play a higher card.
+
+      projectedtrickwinner := trickplayer[1];
+      winningcard := trickcard[1];
+      if xcard in tricksuit then begin
+        if xcard > winningcard then begin
+          projectedtrickwinner := playplayer;
+          winningcard := xcard;
+        end;
+      end;
+
+        // If both of the other players are known to be out of that
+        // suit, then the projected winner is certain.
+
+      outofsuitcount := 0;
+      for p in player do begin
+        if (p <> trickplayer[1]) and (p <> playplayer) then begin
+          if playeroutofsuit[p,cardsuit(trickcard[1])] = true then begin
+            outofsuitcount := outofsuitcount + 1;
+          end;
+        end;
+      end;
+      if outofsuitcount = 2 then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // If there are no other cards left to play in the hands of 3 or 4,
+        // then the projected winner is certain.
+
+      cardsleftofsuit := (tricksuit -  logsuit[cardsuit(trickcard[1])]);
+      cardsleftofsuit := cardsleftofsuit - [trickcard[1]];
+      cardsleftofsuit := cardsleftofsuit - (tricksuit * handcards[playplayer]);
+
+      if cardsleftofsuit = [] then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // If there are cards left to play (and we don't know whether they
+        // are in the hands of 1, 3, or 4), then if they are all lower
+        // than the highest played, then our projected winner is certain.
+
+      if highestofsuit (cardsleftofsuit, tricksuit) < winningcard then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // We end not knowing.
+
+      result := false;
+      bugit (inttostr(playnumber) + ' ?');
+
+    end; {case 2}
+
+      // ------------------------------------------------------------
+      // I am playing third.
+      //
+      // This is much like case 2. We could have amalgamated the
+      // cases, but made them separate for clarity.
+      // ------------------------------------------------------------
+
+    3 : begin
+
+        // Assume the trick winner will be 1.
+        // Then see if 2 played higher or 3 (me) is about to play higher.
+
+      projectedtrickwinner := trickplayer[1];
+      winningcard := trickcard[1];
+
+      if trickcard[2] in tricksuit then begin
+        if trickcard[2] > winningcard then begin
+          projectedtrickwinner := trickplayer[2];
+          winningcard := trickcard[2];
+        end;
+      end;
+
+      if xcard in tricksuit then begin
+        if xcard > winningcard then begin
+          projectedtrickwinner := playplayer;
+          winningcard := xcard;
+        end;
+      end;
+
+        // If player 4 is known to be out of that
+        // suit, then the projected winner is certain.
+
+      outofsuitcount := 0;
+      for p in player do begin
+        if (p <> trickplayer[1]) and (p <> trickplayer[2]) and (p <> playplayer) then begin
+          if playeroutofsuit[p,cardsuit(trickcard[1])] = true then begin
+            outofsuitcount := outofsuitcount + 1;
+          end;
+        end;
+      end;
+      if outofsuitcount = 1 then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // If there are no other cards left to play in the hands of 4,
+        // then the projected winner is certain.
+
+      cardsleftofsuit := (tricksuit -  logsuit[cardsuit(trickcard[1])]);
+      cardsleftofsuit := cardsleftofsuit - [trickcard[1]];
+      if trickcard[2] in tricksuit then begin
+        cardsleftofsuit := cardsleftofsuit - [trickcard[2]];
+      end;
+      cardsleftofsuit := cardsleftofsuit - (tricksuit * handcards[playplayer]);
+
+      if cardsleftofsuit = [] then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // If there are cards left to play (and we don't know whether they
+        // are in the hands of 1, 2, or 4), then if they are all lower
+        // than the highest played, then our projected winner is certain.
+
+      if highestofsuit (cardsleftofsuit, tricksuit) < winningcard then begin
+        result := true;
+        bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+        exit;
+      end;
+
+        // We end not knowing.
+
+      result := false;
+      bugit (inttostr(playnumber) + ' ?');
+
+    end; {case 3}
+
+      // ------------------------------------------------------------
+      // I am playing last.
+      //
+      // Given the card I am going to play, I must always know who is
+      // going to win the trick.
+      //
+      // Collect all cards played, including my 4th play.
+      // Extract trick suit cards.
+      // Get the highest. That's the winner.
+      //        Note: so if playing Queen of Spades last, we know
+      //              who will get it.
+      // (I can only do it this easily knowing the card I am going to
+      // play. Otherwise, I would have to check if I am following
+      // suit. If not, then easy as before. But if so, would have to
+      // compare my possible plays - all below highest, or all above
+      // highest, or a mixture? The first two cases allow me to
+      // pick the winner, the thrid doesn't.))
+      // ------------------------------------------------------------
+
+    4 : begin
+
+      winnernumber := 1;
+
+      for i := 2 to 3 do begin;
+        c := trickcard[i];
+        if c in tricksuit then begin
+          if c > trickcard[winnernumber] then begin
+            winnernumber := i;
+          end;
+        end;
+      end;
+
+      projectedtrickwinner := trickplayer[winnernumber];
+
+      if xcard in tricksuit then begin
+        if xcard > trickcard[winnernumber] then begin
+          projectedtrickwinner := playplayer;
+        end;
+      end;
+
+      result := true;
+      bugit (inttostr(playnumber) + ' ' + playername[projectedtrickwinner]);
+
+    end; {case 4}
+
+  end; {case playnumber}
 
 end;
 
@@ -4454,11 +5023,53 @@ begin
           cardrank := card_to_cardpos (x, hearts);
         end
         else begin
-          showmessage ('could not find rank of card');
+          showmessage ('Could not find rank of card');
           halt;
         end;
       end;
     end;
+  end;
+
+end;
+
+
+//===================================================================
+// Get the average rank of a card set as a real number.
+// The average rank of 2, 6, Q would be (1+5+11)/3 = 5.666...
+// (Remember that the rank goes from 1-13.)
+//
+// This gives us some idea of how high or low this set of cards is.
+//
+// We use the criterion that we will pass groups of 1, 2, or 3
+// cards if that's all we have of one suit - unless their average
+// rank is 4 or less. i.e.
+//
+//    Count    Acceptable total     Example
+//      1              4          2 or 3 or 4 or 5
+//      2              8          2 5, or 4 6
+//      3             12          4 5 6 or 2 6 7
+//===================================================================
+
+function averagerank (xcards : cardset) : single;
+
+var
+  c                       : card;
+  i                       : smallint;
+  t                       : smallint;
+
+begin
+
+  i := 0;
+  t := 0;
+
+  for c in xcards do begin
+    i := i + 1;
+    t := t + cardrank (c);
+  end;
+
+  case i of
+    0 :   result := 0;
+    else  result := t / i;
   end;
 
 end;
@@ -4566,7 +5177,7 @@ begin
   end;
 
   if m = 0 then begin
-    showmessage ('could not find highest card in any suit');
+    showmessage ('Could not find highest card in any suit');
     halt;
   end;
 
@@ -4656,7 +5267,7 @@ begin
   end;
 
   if m = 0 then begin
-    showmessage ('could not find lowest card in any suit');
+    showmessage ('Could not find lowest card in any suit');
     halt;
   end;
 
